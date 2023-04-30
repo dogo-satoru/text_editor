@@ -39,8 +39,8 @@ void RemoveTextAtCmd :: Execute()
         doc.RemoveRow(y-1);
         doc.InsertRow(newRow, y-1);
         doc.RemoveRow(y);
-        doc.MoveCursorX(prevRow.size());
         doc.MoveCursorY(y-1);
+        doc.MoveCursorX(prevRow.size());
     } else if (x > 0) {
         removed = doc.GetCharAt(x-1, y);
         doc.RemoveCharAt(x-1, y);
@@ -84,32 +84,23 @@ void InsertRowCmd :: UnExecute()
     doc.InsertRow(row, y);
 }
 
-EscapeCmd :: EscapeCmd(TextDocument &doc) : doc(doc)
-{
-}
-
-void EscapeCmd :: Execute()
-{
-    doc.Reset();
-}
-
-void EscapeCmd :: UnExecute()
-{
-}
-
-
 PasteCmd :: PasteCmd(TextDocument &doc, int x, int y, std::string copiedText) : doc(doc), x(x), y(y), copiedText(copiedText)
 {
 }
 
 void PasteCmd :: Execute()
 {
-    doc.InsertRow(copiedText, y);
+    std::vector<std::string> Rows = doc.GetRows();
+    right = Rows[y].substr(0, x);
+    left = Rows[y].substr(x, Rows[y].size()-x);
+    doc.InsertRow(right + copiedText + left, y);
+    doc.RemoveRow(y+1);
 }
 
 void PasteCmd :: UnExecute()
 {
     doc.RemoveRow(y);
+    doc.InsertRow(right + left, y);
 }
 // *******************************************************************
 

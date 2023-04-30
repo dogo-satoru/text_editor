@@ -15,6 +15,9 @@ public:
     void Escape();
     void InsertRow(int x, int y);
     void PasteTextAt(int x, int y, std::string copiedText);
+
+    void AddEdge();
+
     bool Undo();
     bool Redo();
 
@@ -36,7 +39,6 @@ public:
     void AddRow(std::string temp) { listRows.push_back(temp); }
     void RemoveRow(int y) { listRows.erase(listRows.begin() + y); }
     void InsertRow(std::string temp, int y) { listRows.insert(listRows.begin() + y, temp); }
-    void MoveCursor(int x, int y) { textview.SetCursorX(x); textview.SetCursorY(y); }
     void FixCursor(int x, int y);
     
     void ESCHandler();
@@ -44,10 +46,16 @@ public:
     void EnterHandler();
     void BackspaceHandler();
     void InsertHandler(int ch);
+    void AddEdge();
     void Copy();
     void Paste();
     bool Undo();
     bool Redo();
+
+    int GetCursorX() const;
+    int GetCursorY() const;
+    void MoveCursorX(int x_pos);
+    void MoveCursorY(int y_pos);
 
     void SwitchMode();
     void Reset() { listRows.clear(); textview.ClearColor(); AddRow(""); }
@@ -55,6 +63,8 @@ public:
     void Refresh();
 
 private:
+    int top;
+    int bottom;
     bool command_mode;
     std::string mode;
     std::string fname;
@@ -62,8 +72,8 @@ private:
 
     ECTextViewImp textview;
     TextDocumentControl docCtrl;
-    std::vector<int> wrappedRows;
     std::vector<std::string> listRows;
+    std::vector<std::string> keywords;
 };
 
 #endif

@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <bits/stdc++.h>
 
 // *************************************************************************
 // TextDocument Control
@@ -42,6 +43,12 @@ void TextDocumentControl :: PasteTextAt(int x, int y, std::string copiedText)
     history.ExecuteCmd(cmd);
 }
 
+void TextDocumentControl :: AddEdge()
+{
+    InputEdge *cmd = new InputEdge();
+    history.ExecuteCmd(cmd);
+}
+
 bool TextDocumentControl :: Undo()
 {
     return history.Undo();
@@ -58,6 +65,15 @@ bool TextDocumentControl :: Redo()
 // Text Document
 TextDocument :: TextDocument(std::string fname) : docCtrl(*this), fname(fname), command_mode(true), mode("Command Mode"), copiedText("NULL")
 {
+    std::ifstream keyword_file;
+    keyword_file.open("keywords.txt");
+    if (keyword_file.is_open()) {
+        std::string temp;
+        while (std::getline(keyword_file, temp)) {
+            keywords.push_back(temp);
+        }
+        keyword_file.close();
+    }
     std::ifstream stream;
     stream.open(fname);
     if (stream.is_open()) {
@@ -67,6 +83,7 @@ TextDocument :: TextDocument(std::string fname) : docCtrl(*this), fname(fname), 
         }
         stream.close();
     }
+    top = 0;
     textview.AddStatusRow(mode, "", true);
     textview.Attach(this);
     Refresh();
@@ -82,20 +99,19 @@ void TextDocument :: Update()
     int keyLastPressed = textview.GetPressedKey();
 
     if (command_mode) {
-        if (keyLastPressed == 105) { SwitchMode(); return; }
+        if (keyLastPressed == 105) { SwitchMode(); AddEdge(); return; }
     } else {
-        if (keyLastPressed == ESC || keyLastPressed == CTRL_A) { SwitchMode(); return; }
+        if (keyLastPressed == ESC || keyLastPressed == CTRL_A) { SwitchMode(); AddEdge(); return; }
     }
 
     if (keyLastPressed == CTRL_S) { Save(); } // Command Mode Only!
     else if (keyLastPressed == CTRL_Z) { Undo(); } // Command Mode Only!
     else if (keyLastPressed == CTRL_Y) { Redo(); } // Command Mode Only!
     else if (keyLastPressed == CTRL_C) { Copy(); } // Command Mode Only!
-    else if (keyLastPressed == CTRL_V) { Paste(); } // Command Mode Only!
+    else if (keyLastPressed == CTRL_Z) { Paste(); } // Command Mode Only!
     else if (keyLastPressed == CTRL_Q) { Save(); textview.Quit(); } // Command Mode Only!
     else if (keyLastPressed == ENTER) { EnterHandler(); } // Insert Mode Only!
     else if (keyLastPressed == BACKSPACE) { BackspaceHandler(); } // Insert Mode Only!
-    // else if (keyLastPressed == DEL_KEY) { DelHandler(); } // Insert Mode Only!
     else if (keyLastPressed >= 1000 && keyLastPressed <= 1003) { ArrowHandler(keyLastPressed); }
     else { InsertHandler(keyLastPressed); }
     Refresh();
@@ -120,52 +136,61 @@ void TextDocument :: RemoveCharAt(int x, int y)
 }
 // ==============================================================
 
-void TextDocument :: ESCHandler()
+// ==============================================================
+// Cursor Related Operations for Wrapping
+int TextDocument :: GetCursorX() const
 {
-    docCtrl.Escape();
+    int x_pos = textview.GetCursorX();
+    return x_pos;
+}
+
+int TextDocument :: GetCursorY() const
+{
+    int y_pos = textview.GetCursorY();
+    return y_pos;
+}
+
+void TextDocument :: MoveCursorX(int x_pos) 
+{
+    if (x_pos < 0 ) { return textview.SetCursorX(0); }
+    if (x_pos > listRows[GetCursorY()].length()) { return MoveCursorX(listRows[GetCursorY()].length()); }
+    textview.SetCursorX(x_pos);
+}
+
+void TextDocument :: MoveCursorY(int y_pos) 
+{
+    if (y_pos > bottom) { return; }
+    if (y_pos < 0) { return textview.SetCursorY(0); }
+    if (y_pos >= (int)listRows.size()) { return MoveCursorY(listRows.size() - 1); }
+
+    textview.SetCursorY(y_pos);
+    textview.SetCursorX(std::min(textview.GetCursorX(), (int)listRows[GetCursorY()].size()));
 }
 
 // ==============================================================
 // Event Handlers:
 void TextDocument :: ArrowHandler(int keyPressed)
 {   
-    int x_pos = textview.GetCursorX();
-    int y_pos = textview.GetCursorY();
-    int new_x = x_pos;
-    int new_y = y_pos;
+    int x_pos = GetCursorX();
+    int y_pos = GetCursorY();
     if (listRows.empty()) {
         return;
     }
     if (keyPressed == ARROW_LEFT) {
-        if (x_pos - 1 >= 0) {
-            new_x = x_pos-1;
-        }
+        x_pos--;
     }
     if (keyPressed == ARROW_RIGHT) {
-        if (x_pos + 1 <= listRows[y_pos].size()) {
-            new_x = x_pos+1;
-        }
+        x_pos++;
     }
     if (keyPressed == ARROW_UP) {
-        if (y_pos - 1 >= 0) {
-            new_x = std::min((int)listRows[y_pos-1].size(), x_pos);
-            new_y = y_pos-1;
-        }
-        while (std::find(wrappedRows.begin(), wrappedRows.end(), new_y) != wrappedRows.end()) {
-            new_y--;
-        }
+        y_pos--;
     }
     if (keyPressed == ARROW_DOWN) {
-        if (y_pos + 1 <= listRows.size()-1) {
-            new_x = std::min((int)listRows[y_pos+1].size(), x_pos);
-            new_y = y_pos+1;
-        }
-        while (std::find(wrappedRows.begin(), wrappedRows.end(), new_y) != wrappedRows.end()) { 
-            new_y++;
-        }
+        y_pos++;
     }
 
-    MoveCursor(new_x, new_y);
+    MoveCursorX(x_pos);
+    MoveCursorY(y_pos);
 }
 
 void TextDocument :: InsertHandler(int ch)
@@ -173,7 +198,7 @@ void TextDocument :: InsertHandler(int ch)
     if (!command_mode) {
         textview.ClearStatusRows();
         textview.AddStatusRow(mode, "Inserting Text", true);
-        docCtrl.InsertTextAt(textview.GetCursorX(), textview.GetCursorY(), (char)ch);
+        docCtrl.InsertTextAt(GetCursorX(), GetCursorY(), (char)ch);
     }
 }
 
@@ -182,7 +207,7 @@ void TextDocument :: EnterHandler()
     if (!command_mode) {
         textview.ClearStatusRows();
         textview.AddStatusRow(mode, "Enter", true);
-        docCtrl.InsertRow(textview.GetCursorX(), textview.GetCursorY());
+        docCtrl.InsertRow(GetCursorX(), GetCursorY());
     }
 }
 
@@ -191,7 +216,7 @@ void TextDocument :: BackspaceHandler()
     if (!command_mode) {
         textview.ClearStatusRows();
         textview.AddStatusRow(mode, "Delete Text", true);
-        docCtrl.RemoveTextAt(textview.GetCursorX(), textview.GetCursorY());
+        docCtrl.RemoveTextAt(GetCursorX(), GetCursorY());
     }
 }
 
@@ -203,7 +228,13 @@ void TextDocument :: FixCursor(int x, int y)
     if (x > listRows[y].size()) {
         x = listRows[y].size();
     }
-    MoveCursor(x, y);
+    MoveCursorX(x);
+    MoveCursorY(y);
+}
+
+void TextDocument :: AddEdge()
+{
+    docCtrl.AddEdge();
 }
 
 void TextDocument :: Copy()
@@ -217,10 +248,10 @@ void TextDocument :: Copy()
 
 void TextDocument :: Paste()
 {
-    if (command_mode && copiedText != "NULL") {
+    if (command_mode) {
         textview.ClearStatusRows();
         textview.AddStatusRow(mode, "Pasted!", true);
-        docCtrl.PasteTextAt(textview.GetCursorX(), textview.GetCursorY(), copiedText);
+        docCtrl.PasteTextAt(GetCursorX(), GetCursorY(), copiedText);
     }
 }
 
@@ -231,7 +262,7 @@ bool TextDocument :: Undo()
         textview.ClearStatusRows();
         textview.AddStatusRow(mode, "Undo", true);
         undo = docCtrl.Undo();
-        FixCursor(textview.GetCursorX(), textview.GetCursorY());
+        FixCursor(GetCursorX(), GetCursorY());
     }
     if (!undo) {
         std::cout << '\a';
@@ -277,14 +308,28 @@ void TextDocument :: Save()
 void TextDocument :: Refresh()
 {
     textview.InitRows();
-    for (int i = 0; i < listRows.size(); i++) {
-        if (listRows[i].size() > textview.GetColNumInView()) {
-            wrappedRows.push_back(i+1);
-            wrappedRows.push_back(i);
-            textview.AddRow(listRows[i].substr(0, textview.GetColNumInView()));
-            textview.AddRow(listRows[i].substr(textview.GetColNumInView(), listRows[i].size() - textview.GetColNumInView()));
-        } else {
-            textview.AddRow(listRows[i]);
+    textview.ClearColor();
+    bottom = listRows.size() < textview.GetRowNumInView() ? listRows.size() : textview.GetRowNumInView();
+    for (int i = top; i < bottom; i++) {
+        textview.AddRow(listRows[i]);
+    }
+    if (!keywords.empty()) {
+        int row_idx = 0;
+        for (auto row : listRows) {
+            int word_idx = 0;
+            std::string temp;
+            std::stringstream ss(row);
+            std::vector<std::string> split;
+            while (std::getline(ss, temp, ' ')) {
+                split.push_back(temp);
+            }
+            for (auto word : split) {
+                if (std::find(keywords.begin(), keywords.end(), word) != keywords.end()) {
+                    textview.SetColor(row_idx, word_idx, word_idx + word.length(), TEXT_COLOR_BLUE);
+                }
+                word_idx += word.length()+1;
+            }
+            row_idx++;
         }
     }
 }

@@ -16,7 +16,8 @@ void InsertTextAtCmd :: Execute()
         doc.Reset();
     }
     doc.InsertCharAt(x, y, ch);
-    doc.MoveCursor(x+1, y);
+    doc.MoveCursorX(x+1);
+    doc.MoveCursorY(y);
 }
 
 void InsertTextAtCmd :: UnExecute()
@@ -38,11 +39,13 @@ void RemoveTextAtCmd :: Execute()
         doc.RemoveRow(y-1);
         doc.InsertRow(newRow, y-1);
         doc.RemoveRow(y);
-        doc.MoveCursor(prevRow.size(), y-1);
+        doc.MoveCursorX(prevRow.size());
+        doc.MoveCursorY(y-1);
     } else if (x > 0) {
         removed = doc.GetCharAt(x-1, y);
         doc.RemoveCharAt(x-1, y);
-        doc.MoveCursor(x-1, y);
+        doc.MoveCursorX(x-1);
+        doc.MoveCursorY(y);
     }
 }
 
@@ -69,7 +72,8 @@ void InsertRowCmd :: Execute()
     doc.RemoveRow(y);
     doc.InsertRow(left, y);
     doc.InsertRow(right, y);
-    doc.MoveCursor(0, y+1);
+    doc.MoveCursorX(0);
+    doc.MoveCursorY(y+1);
 }
 
 void InsertRowCmd :: UnExecute()
@@ -126,6 +130,17 @@ bool CommandHistory :: Undo()
         return false;
     }
     Command *pCmd = listCmds.back();
+    if (pCmd->GetType() == "Edge") {
+        listUndoneCmds.push_back(pCmd);
+        listCmds.pop_back();
+        pCmd = listCmds.back();
+        do {
+            pCmd->UnExecute();
+            listUndoneCmds.push_back(pCmd);
+            listCmds.pop_back();
+            pCmd = listCmds.back();
+        } while (pCmd->GetType() != "Edge" && !listCmds.empty());
+    }
     pCmd->UnExecute();
     listUndoneCmds.push_back(pCmd);
     listCmds.pop_back();
@@ -138,6 +153,17 @@ bool CommandHistory :: Redo()
         return false;
     }
     Command *pCmd = listUndoneCmds.back();
+    if (pCmd->GetType() == "Edge") {
+        listCmds.push_back(pCmd);
+        listUndoneCmds.pop_back();
+        pCmd = listUndoneCmds.back();
+        do {
+            pCmd->Execute();
+            listCmds.push_back(pCmd);
+            listUndoneCmds.pop_back();
+            pCmd= listUndoneCmds.back();
+        } while (pCmd->GetType() != "Edge" && !listCmds.empty());
+    }
     pCmd->Execute();
     listCmds.push_back(pCmd);
     listUndoneCmds.pop_back();

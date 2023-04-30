@@ -31,12 +31,6 @@ void TextDocumentControl :: InsertRow(int x, int y)
     history.ExecuteCmd(cmd);
 }
 
-void TextDocumentControl :: Escape()
-{
-    EscapeCmd *cmd = new EscapeCmd(doc);
-    history.ExecuteCmd(cmd);
-}
-
 void TextDocumentControl :: PasteTextAt(int x, int y, std::string copiedText)
 {
     PasteCmd *cmd = new PasteCmd(doc, x, y, copiedText);
@@ -108,10 +102,11 @@ void TextDocument :: Update()
     else if (keyLastPressed == CTRL_Z) { Undo(); } // Command Mode Only!
     else if (keyLastPressed == CTRL_Y) { Redo(); } // Command Mode Only!
     else if (keyLastPressed == CTRL_C) { Copy(); } // Command Mode Only!
-    else if (keyLastPressed == CTRL_Z) { Paste(); } // Command Mode Only!
+    else if (keyLastPressed == CTRL_B) { Paste(); } // Command Mode Only!
     else if (keyLastPressed == CTRL_Q) { Save(); textview.Quit(); } // Command Mode Only!
     else if (keyLastPressed == ENTER) { EnterHandler(); } // Insert Mode Only!
     else if (keyLastPressed == BACKSPACE) { BackspaceHandler(); } // Insert Mode Only!
+    else if (keyLastPressed == TAB) { TabHandler(); }
     else if (keyLastPressed >= 1000 && keyLastPressed <= 1003) { ArrowHandler(keyLastPressed); }
     else { InsertHandler(keyLastPressed); }
     Refresh();
@@ -137,7 +132,7 @@ void TextDocument :: RemoveCharAt(int x, int y)
 // ==============================================================
 
 // ==============================================================
-// Cursor Related Operations for Wrapping
+// Cursor Related Operations
 int TextDocument :: GetCursorX() const
 {
     int x_pos = textview.GetCursorX();
@@ -152,6 +147,7 @@ int TextDocument :: GetCursorY() const
 
 void TextDocument :: MoveCursorX(int x_pos) 
 {
+    Refresh();
     if (x_pos < 0 ) { return textview.SetCursorX(0); }
     if (x_pos > listRows[GetCursorY()].length()) { return MoveCursorX(listRows[GetCursorY()].length()); }
     textview.SetCursorX(x_pos);
@@ -217,6 +213,17 @@ void TextDocument :: BackspaceHandler()
         textview.ClearStatusRows();
         textview.AddStatusRow(mode, "Delete Text", true);
         docCtrl.RemoveTextAt(GetCursorX(), GetCursorY());
+    }
+}
+
+void TextDocument :: TabHandler()
+{
+    if (!command_mode) {
+        textview.ClearStatusRows();
+        textview.AddStatusRow(mode, "Inserting Text", true);
+        for (int i = 0; i < GetCursorX() % 4; i++) {
+            docCtrl.InsertTextAt(GetCursorX(), GetCursorY(), ' ');
+        }
     }
 }
 
@@ -304,7 +311,10 @@ void TextDocument :: Save()
         textview.AddStatusRow(mode, "Saved File!", true);
     }
 }
+// ==============================================================
 
+// ==============================================================
+// View interfacing:
 void TextDocument :: Refresh()
 {
     textview.InitRows();

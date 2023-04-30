@@ -12,7 +12,6 @@ public:
     TextDocumentControl(TextDocument &doc);
     void InsertTextAt(int x, int y, char ch);
     void RemoveTextAt(int x, int y);
-    void Escape();
     void InsertRow(int x, int y);
     void PasteTextAt(int x, int y, std::string copiedText);
 
@@ -41,10 +40,10 @@ public:
     void InsertRow(std::string temp, int y) { listRows.insert(listRows.begin() + y, temp); }
     void FixCursor(int x, int y);
     
-    void ESCHandler();
     void ArrowHandler(int keyPressed);
     void EnterHandler();
     void BackspaceHandler();
+    void TabHandler();
     void InsertHandler(int ch);
     void AddEdge();
     void Copy();

@@ -25,17 +25,6 @@ public:
 
 };
 
-class EscapeCmd : public Command
-{
-public:
-    EscapeCmd(TextDocument &doc);
-    std::string GetType() { return "Escape"; }
-    void Execute() override;
-    void UnExecute() override;
-private:
-    TextDocument &doc;
-};
-
 class PasteCmd : public Command
 {
 public:
@@ -46,6 +35,8 @@ public:
 private:
     int x;
     int y;
+    std::string right;
+    std::string left;
     std::string copiedText;
     TextDocument &doc;
 };

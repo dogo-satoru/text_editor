@@ -221,7 +221,8 @@ void TextDocument :: TabHandler()
     if (!command_mode) {
         textview.ClearStatusRows();
         textview.AddStatusRow(mode, "Inserting Text", true);
-        for (int i = 0; i < GetCursorX() % 4; i++) {
+        int x = GetCursorX();
+        for (int i = 4; i > x % 4; --i) {
             docCtrl.InsertTextAt(GetCursorX(), GetCursorY(), ' ');
         }
     }
@@ -301,15 +302,13 @@ void TextDocument :: SwitchMode() {
 
 void TextDocument :: Save()
 {
-    if (command_mode) {
-        std::ofstream file(fname);
-        for (auto row : listRows) {
-            file << row << std::endl;
-        }
-        file.close();
-        textview.ClearStatusRows();
-        textview.AddStatusRow(mode, "Saved File!", true);
+    std::ofstream file(fname);
+    for (auto row : listRows) {
+        file << row << std::endl;
     }
+    file.close();
+    textview.ClearStatusRows();
+    textview.AddStatusRow(mode, "Saved File!", true);
 }
 // ==============================================================
 

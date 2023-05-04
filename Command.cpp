@@ -16,8 +16,6 @@ void InsertTextAtCmd :: Execute()
         doc.Reset();
     }
     doc.InsertCharAt(x, y, ch);
-    doc.MoveCursorX(x+1);
-    doc.MoveCursorY(y);
 }
 
 void InsertTextAtCmd :: UnExecute()
@@ -39,13 +37,9 @@ void RemoveTextAtCmd :: Execute()
         doc.RemoveRow(y-1);
         doc.InsertRow(newRow, y-1);
         doc.RemoveRow(y);
-        doc.MoveCursorY(y-1);
-        doc.MoveCursorX(prevRow.size());
     } else if (x > 0) {
         removed = doc.GetCharAt(x-1, y);
         doc.RemoveCharAt(x-1, y);
-        doc.MoveCursorX(x-1);
-        doc.MoveCursorY(y);
     }
 }
 
@@ -72,8 +66,6 @@ void InsertRowCmd :: Execute()
     doc.RemoveRow(y);
     doc.InsertRow(left, y);
     doc.InsertRow(right, y);
-    doc.MoveCursorX(0);
-    doc.MoveCursorY(y+1);
 }
 
 void InsertRowCmd :: UnExecute()
@@ -125,12 +117,12 @@ bool CommandHistory :: Undo()
         listUndoneCmds.push_back(pCmd);
         listCmds.pop_back();
         pCmd = listCmds.back();
-        do {
+        while (pCmd->GetType() != "Edge" && !listCmds.empty()) {
             pCmd->UnExecute();
             listUndoneCmds.push_back(pCmd);
             listCmds.pop_back();
             pCmd = listCmds.back();
-        } while (pCmd->GetType() != "Edge" && !listCmds.empty());
+        }
     }
     pCmd->UnExecute();
     listUndoneCmds.push_back(pCmd);
@@ -148,12 +140,12 @@ bool CommandHistory :: Redo()
         listCmds.push_back(pCmd);
         listUndoneCmds.pop_back();
         pCmd = listUndoneCmds.back();
-        do {
+        while (pCmd->GetType() != "Edge" && !listCmds.empty()) {
             pCmd->Execute();
             listCmds.push_back(pCmd);
             listUndoneCmds.pop_back();
             pCmd= listUndoneCmds.back();
-        } while (pCmd->GetType() != "Edge" && !listCmds.empty());
+        }
     }
     pCmd->Execute();
     listCmds.push_back(pCmd);

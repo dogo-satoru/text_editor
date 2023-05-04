@@ -62,17 +62,19 @@ public:
     void Refresh();
 
 private:
+    std::string fname;
+    ECTextViewImp textview;
+    TextDocumentControl docCtrl;
+
     int top;
     int bottom;
     bool command_mode;
     std::string mode;
-    std::string fname;
     std::string copiedText;
 
-    ECTextViewImp textview;
-    TextDocumentControl docCtrl;
     std::vector<std::string> listRows;
     std::vector<std::string> keywords;
+    std::vector<int> wrappedRows;
 };
 
 #endif

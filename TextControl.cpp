@@ -17,18 +17,21 @@ void TextDocumentControl :: InsertTextAt(int x, int y, char ch)
 {
     InsertTextAtCmd *cmd = new InsertTextAtCmd(doc, x, y, ch);
     history.ExecuteCmd(cmd);
+    history.ClearRedo();
 }
 
 void TextDocumentControl :: RemoveTextAt(int x, int y)
 {
     RemoveTextAtCmd *cmd = new RemoveTextAtCmd(doc, x, y);
     history.ExecuteCmd(cmd);
+    history.ClearRedo();
 }
 
 void TextDocumentControl :: InsertRow(int x, int y)
 {
     InsertRowCmd *cmd = new InsertRowCmd(doc, x, y);
     history.ExecuteCmd(cmd);
+    history.ClearRedo();
 }
 
 void TextDocumentControl :: PasteTextAt(int x, int y, std::string copiedText)
@@ -57,7 +60,7 @@ bool TextDocumentControl :: Redo()
 // *************************************************************************
 // ==============================================================
 // Text Document
-TextDocument :: TextDocument(std::string fname) : docCtrl(*this), fname(fname), command_mode(true), mode("Command Mode"), copiedText("NULL")
+TextDocument :: TextDocument(std::string fname) : fname(fname), docCtrl(*this), command_mode(true), mode("Command Mode"), copiedText("NULL")
 {
     std::ifstream keyword_file;
     keyword_file.open("keywords.txt");
@@ -76,6 +79,8 @@ TextDocument :: TextDocument(std::string fname) : docCtrl(*this), fname(fname), 
             AddRow(temp);
         }
         stream.close();
+    } else {
+        AddRow("");
     }
     top = 0;
     textview.AddStatusRow(mode, "", true);
@@ -136,12 +141,20 @@ void TextDocument :: RemoveCharAt(int x, int y)
 int TextDocument :: GetCursorX() const
 {
     int x_pos = textview.GetCursorX();
+    // int y_pos = textview.GetCursorY();
+    // while (std::find(wrappedRows.begin(), wrappedRows.end(), y_pos) != wrappedRows.end()) {
+    //     x_pos += textview.GetColNumInView();
+    // }
     return x_pos;
 }
 
 int TextDocument :: GetCursorY() const
 {
-    int y_pos = textview.GetCursorY();
+    int adjustment=0;
+    for (auto row : wrappedRows) {
+        if (textview.GetCursorY() >= row) adjustment++;
+    }
+    int y_pos = textview.GetCursorY() + top - adjustment;
     return y_pos;
 }
 
@@ -149,15 +162,25 @@ void TextDocument :: MoveCursorX(int x_pos)
 {
     Refresh();
     if (x_pos < 0 ) { return textview.SetCursorX(0); }
+    // if (x_pos % textview.GetColNumInView() == 0) {
+    //     Refresh();
+    //     textview.SetCursorX(x_pos);
+    // }
     if (x_pos > listRows[GetCursorY()].length()) { return MoveCursorX(listRows[GetCursorY()].length()); }
     textview.SetCursorX(x_pos);
 }
 
 void TextDocument :: MoveCursorY(int y_pos) 
 {
-    if (y_pos > bottom) { return; }
+    if (std::find(wrappedRows.begin(), wrappedRows.end(), y_pos) != wrappedRows.end()) {
+        int movement = 1;
+        if (y_pos - GetCursorY() < 0) { movement = -1; }
+        while (std::find(wrappedRows.begin(), wrappedRows.end(), y_pos) != wrappedRows.end()) {
+            y_pos += movement;
+        }
+    }
     if (y_pos < 0) { return textview.SetCursorY(0); }
-    if (y_pos >= (int)listRows.size()) { return MoveCursorY(listRows.size() - 1); }
+    if (y_pos >= bottom + wrappedRows.size()) { return MoveCursorY(listRows.size() - 1); }
 
     textview.SetCursorY(y_pos);
     textview.SetCursorX(std::min(textview.GetCursorX(), (int)listRows[GetCursorY()].size()));
@@ -166,7 +189,7 @@ void TextDocument :: MoveCursorY(int y_pos)
 // ==============================================================
 // Event Handlers:
 void TextDocument :: ArrowHandler(int keyPressed)
-{   
+{
     int x_pos = GetCursorX();
     int y_pos = GetCursorY();
     if (listRows.empty()) {
@@ -195,6 +218,8 @@ void TextDocument :: InsertHandler(int ch)
         textview.ClearStatusRows();
         textview.AddStatusRow(mode, "Inserting Text", true);
         docCtrl.InsertTextAt(GetCursorX(), GetCursorY(), (char)ch);
+        MoveCursorX(GetCursorX()+1);
+        MoveCursorY(GetCursorY());
     }
 }
 
@@ -204,15 +229,20 @@ void TextDocument :: EnterHandler()
         textview.ClearStatusRows();
         textview.AddStatusRow(mode, "Enter", true);
         docCtrl.InsertRow(GetCursorX(), GetCursorY());
+        MoveCursorX(0);
+        MoveCursorY(GetCursorY()+1);
     }
 }
 
 void TextDocument :: BackspaceHandler()
 {
     if (!command_mode) {
+        int prevRowSize = listRows[GetCursorY()-1].length();
         textview.ClearStatusRows();
         textview.AddStatusRow(mode, "Delete Text", true);
         docCtrl.RemoveTextAt(GetCursorX(), GetCursorY());
+        if (GetCursorX() == 0 && GetCursorY() > 0) { MoveCursorY(GetCursorY()-1); MoveCursorX(prevRowSize); }
+        else { MoveCursorX(GetCursorX()-1); MoveCursorY(GetCursorY()); }
     }
 }
 
@@ -272,9 +302,6 @@ bool TextDocument :: Undo()
         undo = docCtrl.Undo();
         FixCursor(GetCursorX(), GetCursorY());
     }
-    if (!undo) {
-        std::cout << '\a';
-    }
     return undo;
 }
 
@@ -285,9 +312,6 @@ bool TextDocument :: Redo()
         textview.ClearStatusRows();
         textview.AddStatusRow(mode, "Redo", true);
         redo = docCtrl.Redo();
-    }
-    if (!redo) {
-        std::cout << '\a';
     }
     return redo;
 }
@@ -316,11 +340,22 @@ void TextDocument :: Save()
 // View interfacing:
 void TextDocument :: Refresh()
 {
+    Save();
     textview.InitRows();
     textview.ClearColor();
     bottom = listRows.size() < textview.GetRowNumInView() ? listRows.size() : textview.GetRowNumInView();
+    wrappedRows.clear();
     for (int i = top; i < bottom; i++) {
-        textview.AddRow(listRows[i]);
+        if (listRows[i].length() > textview.GetColNumInView()) {
+            int pos=i;
+            for (int j = 0; j < listRows[i].length(); j += textview.GetColNumInView()-1) {
+                textview.AddRow(listRows[i].substr(j, textview.GetColNumInView()-1));
+                if (j > 0) { wrappedRows.push_back(pos); }
+                pos++;
+            }
+        } else {
+            textview.AddRow(listRows[i]);
+        }
     }
     if (!keywords.empty()) {
         int row_idx = 0;

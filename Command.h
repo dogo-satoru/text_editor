@@ -33,12 +33,12 @@ public:
     void Execute() override;
     void UnExecute() override;
 private:
+    TextDocument &doc;
     int x;
     int y;
     std::string right;
     std::string left;
     std::string copiedText;
-    TextDocument &doc;
 };
 
 class InsertTextAtCmd : public Command
@@ -96,6 +96,7 @@ public:
     bool Undo();
     bool Redo();
     void ExecuteCmd(Command *pCmd);
+    void ClearRedo() { listUndoneCmds.clear(); }
 
 private:
     std::vector<Command *> listCmds;

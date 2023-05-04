@@ -14,7 +14,7 @@ int main(int argc, char *argv[])
     if (argc == 2) {
         name = argv[1];
     } else {
-        std::cout << "Usage: ./editor {filename}" << std::endl;
+        std::cout << "Usage: ./myeditor {filename}" << std::endl;
         return 1;
     }
     TextDocument doc(name);

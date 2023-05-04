@@ -4,7 +4,6 @@ DEPENDENCIES = Command.cpp Main.cpp ECTextViewImp.cpp TextControl.cpp
 all: editor
 
 editor:
-	$(CC) $(DEPENDENCIES) -o editor
-
+	$(CC) $(DEPENDENCIES) -o myeditor
 clean:
-	rm -f editor
+	rm -f myeditor
